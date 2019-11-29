@@ -17,3 +17,12 @@ In this assignment, you’ll practice collaborating around a code project with G
 * GitHub repository:  https://github.com/acatlin/FALL2019TIDYVERSE
 * FiveThirtyEight.com datasets:  https://data.fivethirtyeight.com/
 * Kaggle datasets:  https://www.kaggle.com/datasets
+
+````````````````````````````````````````````````````````````````````````````````````
+
+**Misha Kollontai - DATA607 TidyVerse Assignment**
+
+**Data** - https://www.kaggle.com/pascalbliem/european-social-survey-ess-8-ed21-201617/data#
+
+**RPubs** - http://rpubs.com/mkollontai/DATA607_TidyVerse
+

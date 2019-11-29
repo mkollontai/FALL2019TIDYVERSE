@@ -1,0 +1,232 @@
+---
+title: "tidyr Your Data"
+author: "Misha Kollontai"
+date: "11/27/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Working with Geographical Data
+
+One of the most important skills for a data scientist is data presentation. The countless hours of behind the scenes work: aggregating the data, tidying it, performing statistical analyses, etc is wasted if the conclusions drawn from this work cannot be conveyed properly to a general audience. It is for this reason that data visualization is such a rapidly growing field, for as they say: "a picture is worth a thousand words". 
+
+This is all well and good when talking about trends over time for a single variable, approval ratings or other simple datasets that can be presented in the form of bar charts, scatter plots or box plots. What does one do when the goal is to compare data from various countries? 
+
+In this case, it is useful to use a combination of the package ggplot2 from the TidyVerse along with a few other packages containing geographical data to plot a world map. (Additional package inspiration from https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html)
+
+
+Let's begin by loading the tidyverse and additional required packages:
+```{r libraries}
+library(tidyverse)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(rgeos)
+```
+
+## The Approach {.tabset .tabset-fade}
+
+
+### Plotting the map we want to look at
+
+Following the approach outlined in https://www.r-spatial.org/r/2018/10/25/ggplot2-sf.html we can plot the map and zoom into a certain area. The  For the data we will be looking at what we want is Europe. 
+
+Start by pulling the data for all countries using the `ne_countries` function from the package `rnaturalearth`. The return class is driven by what `ggplot2` expects as an input, which is the sf class. 
+
+* Specify the data selected above as the input for `ggplot` (a core function within the `ggplot2` package). 
+
+* `geom_sf` can be applied to a `ggplot`, assuming that geometric information is stored in a column titled **geometry** within the dataset. In this case that means that geom_sf is pulling the information contained in world$geometry. The output of `geom_sf` is dependent on the information contained within the geometry column. In this case, the geometry column contains complex plygon coordinates for all of the countries on the world map based on latitude and longitude. 
+
+* Finally, narrow the x and y limits of the plot to coincide with the outer reaches of the area you want to focus on. In this case this is the latidude and longitude ranges encompassing mainland Europe. 
+
+<center>
+```{r plot_our_map, fig.cap = "Sample Map of Europe"}
+world <- ne_countries(scale = "medium", returnclass = "sf")
+Europe <- world[which(world$continent == "Europe"),]
+ggplot(Europe) +
+  geom_sf() +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+</center>
+
+### Pulling our Dataset
+
+We now need a set of data to work with. Here is a collection of data from the European Social Survey (ESS) pulled from Kaggle.com (https://www.kaggle.com/pascalbliem/european-social-survey-ess-8-ed21-201617/data#) with responses to a survey conducted throughout Europe. The data contains 44387 responses collected throughout 23 countries.
+```{r read_data}
+data <- read.csv("ESS8e02.1_F1.csv")
+```
+
+Let's subset the dataset to a few variables we want to plot on the map to make it more manageable:
+
+```{r subset_survey_data}
+sub_data <- data[,c("idno","cntry","polintr","trstplc","happy","rlgblg")]
+```
+
+Split out data and take out erroneous responses ("Do Not Know", "Refusal", "No Answer", etc.)
+
+```{r subframes}
+PolInt <- sub_data[which(sub_data$polintr < 5),c(1:3)]
+PoliceTrust <- sub_data[which(sub_data$trstplc < 11),c(1,2,4)]
+Happy <- sub_data[which(sub_data$happy < 11),c(1,2,5)]
+Religious <-  sub_data[which(sub_data$rlgblg < 3),c(1,2,6)]
+```
+
+Let's combine data to look at averages of the responses to the chosen questions:
+
+```{r}
+PolInt_df <- PolInt %>%
+  group_by(cntry) %>%
+  summarise(PolitIntr = mean(polintr), n = n())
+
+Police_df <- PoliceTrust %>%
+  group_by(cntry) %>%
+  summarise(PolTrust = mean(trstplc), n = n())
+
+Happy_df <- Happy %>%
+  group_by(cntry) %>%
+  summarise(Happy = mean(happy), n = n())
+
+Religious_df <- Religious %>%
+  group_by(cntry) %>%
+  summarise(Religious = mean(rlgblg), n = n())
+
+Results <- data.frame(PolInt_df$cntry, PolInt_df$PolitIntr,Police_df$PolTrust, Happy_df$Happy, Religious_df$Religious)
+
+#Remove Israel as it is not part of Europe. 
+Results <- Results[-c(13),]
+
+names(Results) <- c("Country", "PolitInt", "PoliceTrst", "Happy", "Religious")
+```
+
+Change the abbreviated names of coutnries from the survey to the full names used by the `rnaturalearth` dataset
+
+```{r replace_abbreviations}
+abv <- c("AT","BE","CH","CZ","DE","EE","ES","FI","FR","GB","HU","IE","IS","IT","LT","NL","NO","PL","PT","RU","SE","SI" )
+repl <- c("Austria","Belgium","Switzerland","Czech Rep.","Germany", "Estonia", "Spain", "Finland", "France", "United Kingdom", "Hungary", "Ireland", "Iceland", "Italy", "Lithuania", "Netherlands","Norway", "Poland", "Portugal", "Russia", "Sweden" , "Slovenia")
+replacement_df <- data.frame(abv = abv, rep = repl)
+fix_name <- function(abbv){
+   for (i in 1:23){
+     if (abbv == replacement_df[i,1]){
+       return (replacement_df[i,2])
+     }
+   }
+ }
+
+
+Results[,"Country"] <- sapply(Results[,"Country"],fix_name)
+```
+
+Let's combine our data into the full Europe dataset and get plotting
+
+```{r Pull geometries to Results}
+for (i in 1:nrow(Results)){
+  row <- which(Europe$name == Results[i,"Country"])
+  Europe[row,"PolitInt"] <- Results[i,"PolitInt"]
+  Europe[row,"PoliceTrst"] <- Results[i,"PoliceTrst"]
+  Europe[row,"Happy"] <- Results[i,"Happy"]
+  Europe[row,"Religious"] <- Results[i,"Religious"]
+}
+
+```
+
+
+### Plot our data on a map of Europe
+
+#### Looking at the aesthetic options within geom_sf()
+
+Now we can look at the ways ggplot can be used to visualize data. 
+One can provide the `geom_sf` with aesthetic mappings, which specify how exactly to present data. To do this, one must specify `aes()` within the geom_sf function.
+
+`aes()` accepts three color related aesthetics:
+
+**1. aes(color)**
+
+The **color** aesthetic assigns a value to the geometries drawn by `geom_sf` based on the value associated with each observation. In our case this means the outline of the country will be colored based on the value we specify. 
+    
+Let's see how that looks when we assign the outlines values based on the interest in politics within each surveyed country:
+
+```{r plot of politic data with outline aesthetic}
+politic_plot <- ggplot(Europe) +
+  geom_sf(aes(color = PolitInt)) +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+<center>
+```{r, echo = FALSE, fig.cap = "Map of Europe with country outlines colored based on interest in politics"}
+politic_plot
+```
+</center>
+
+**2. aes(alpha)**
+
+The **alpha** aesthetic assigns a value to the transparency of the fill of each geometry. For us this means how transparent each country appears on the map. Let's take a look at this using the Polie Trust level:
+
+```{r plot of police trust with alpha aesthetic}
+police_plot <- ggplot(Europe) +
+  geom_sf(aes(alpha = PoliceTrst)) +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+<center>
+```{r, echo = FALSE, fig.cap = "Map of Europe with transparency of country based on trust in the police"}
+police_plot
+```
+</center>
+
+**3. aes(fill)**
+
+The **fill** aesthetic is especially helpful when working with maps. It assigns the fill of the geometry basd on the value associated with each one. We can plot the Happiness data using this aesthetic to see which countries' respondents consider themselves happier on average:
+
+```{r plot of happiness data with fill aesthetic }
+happy_plot <- ggplot(Europe) +
+  geom_sf(aes(fill = Happy)) 
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE) 
+```
+<center>
+```{r, echo = FALSE, fig.cap = "Map of Europe with country fill-in colored based on overall happiness"}
+happy_plot +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+</center>
+
+If we want, we can specify what colors to use for the fill to customize our map a little. Here is an example of applying a built in gradient (`gradient2`) to the fill applied to our map. 
+
+<center>
+```{r, echo = FALSE, fig.cap = "Map of Europe with country fill-in color based on overall happiness"}
+happy_plot + scale_fill_gradient2() +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+</center>
+
+Other built-in color options include:
+
+* scale_fill_gradient()
+* scale_fill_gradient2() *(shown above)*
+* scale_fill_viridis_c
+* scale_fill_viridis_d
+
+Now let's take a look at a way to specify the colors we want used while switching over to the religious index data. 
+
+```{r plot of religious index by country using custom fill}
+religious_plot <- ggplot(Europe) +
+  geom_sf(aes(fill = Religious)) +
+  coord_sf(xlim = c(-25,50), ylim = c(35,70), expand = FALSE)
+```
+
+
+Applying the style `scale_fill_gradient` allows us to specify the two extreme colors and let R fill in the gradient for us. 
+
+In this case let's create a gradient between orange for the low values and blue or high. 
+
+<center>
+```{r, fig.cap = "Map of Europe with country fill-in color based on religious index"}
+religious_plot + scale_fill_gradient(low = "orange", high = "blue")
+```
+</center>
+
+
+
+## Conclusion
+
+When looking to visualize data from various countries, overlaying onto a map can be a very effective way. Using the `rnaturalearth` package coupled with the `geom_sf` capability within `ggplot2` allows one to plot any part of the world map. Collects data can then be assigned to each color and visualized as outlines, fills and transparencies based on the `color`, `fill` and `alpha` aesthetics available for within `aes()` option. There are countless ways to customize the fills and colors based on what the analyst is attempting to convey. 
