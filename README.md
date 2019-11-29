@@ -30,7 +30,9 @@ Part 1
 
 The data selected was a Survey conducted within Europe on social values. In order to provide a simple way of visualize comparisons between these countries I showed a way to use ggplot2 to plot a world map, zoom in, and color each country accordingly. 
 
-````Part 2````
+````
+Part 2
+````
 
 Expanded upon work done by Joseph Simone. His work involved sorting data for airline safety. Added barplot showing the most improved and most worsened airlines in terms of fatalities. 
 
