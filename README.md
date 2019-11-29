@@ -26,3 +26,5 @@ In this assignment, you’ll practice collaborating around a code project with G
 
 **RPubs** - http://rpubs.com/mkollontai/DATA607_TidyVerse
 
+The data selected was a Survey conducted within Europe on social values. In order to provide a simple way of visualize comparisons between these countries I showed a way to use ggplot2 to plot a world map, zoom in, and color each country accordingly. 
+
