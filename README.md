@@ -18,7 +18,9 @@ In this assignment, you’ll practice collaborating around a code project with G
 * FiveThirtyEight.com datasets:  https://data.fivethirtyeight.com/
 * Kaggle datasets:  https://www.kaggle.com/datasets
 
-``````````Part 1``````````````````````````````````````````````````````````````````````
+````
+Part 1
+````
 
 **Misha Kollontai - DATA607 TidyVerse Assignment**
 
@@ -28,7 +30,8 @@ In this assignment, you’ll practice collaborating around a code project with G
 
 The data selected was a Survey conducted within Europe on social values. In order to provide a simple way of visualize comparisons between these countries I showed a way to use ggplot2 to plot a world map, zoom in, and color each country accordingly. 
 
-``````````Part 2``````````````````````````````````````````````````````````````````````
+````Part 2````
+
 Expanded upon work done by Joseph Simone. His work involved sorting data for airline safety. Added barplot showing the most improved and most worsened airlines in terms of fatalities. 
 
 **RPubs** - http://rpubs.com/mkollontai/DATA607_TidyVerse_Part2
